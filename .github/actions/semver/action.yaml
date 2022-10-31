@@ -38,13 +38,13 @@ runs:
     shell: bash
     run: "if [[ \"$GITHUB_REF\" == \"${{ inputs.releaseBranch }}\" ]]; then\n  echo \"In release branch - setting semver\" \n  echo \"::set-output name=isInReleaseBranch::true\"\nelse\n  echo \"Not in release branch - setting hash as semver suffix\"\n  echo \"::set-output name=isInReleaseBranch::false\"\nfi\n  #magic___^_^___line\n"
   - name: SemVer
-  id: SemVerStep
-  shell: bash
-  run: |
-    prefix="v"
-    version="1.2.3"
-    echo "::set-output name=semanticVersion::$(echo $prefix$version)"
-    echo "final version is: " $prefix$version
+    id: SemVerStep
+    shell: bash
+    run: |
+      prefix="v"
+      version="1.2.3"
+      echo "::set-output name=semanticVersion::$(echo $prefix$version)"
+      echo "final version is: " $prefix$version
 
 
 #     majorVersion=${{ inputs.majorVersion }}
