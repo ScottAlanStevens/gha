@@ -64,8 +64,6 @@ runs:
         git fetch -f --all --tags
         version=`git tag | sort -r --version-sort | head -n1`
         
-        echo "Current Version = " $version
-
         if [ -z "$version" ]; then
           echo "No version set - creating very first one"
           version=$majorVersion.$minorVersion.$seed
