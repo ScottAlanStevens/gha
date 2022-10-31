@@ -1,0 +1,46 @@
+name: Configure Terraform
+description: "Makes the installation and initial terraform configuration"
+
+inputs:
+  AWS_ROLE_TO_ASSUME:
+    required: false
+    description: "AWS role to be assumed during workflow execution"
+  AWS_SESSION_NAME:
+    required: false
+    description: "Respective session name for the assumed role"
+  AWS_ACCESS_KEY:
+    required: false
+    description: "Respective session name for the assumed role"
+  AWS_SECRET_KEY:
+    required: false
+    description: "Respective session name for the assumed role"
+
+runs:
+  using: "composite"
+  steps:
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v1
+      env:
+        REGION: 'us-east-1'
+      with:
+        role-duration-seconds: 3600
+        role-to-assume: ${{ inputs.AWS_ROLE_TO_ASSUME }}
+        role-session-name: ${{ inputs.AWS_SESSION_NAME }}
+        aws-access-key-id: ${{ inputs.AWS_ACCESS_KEY }}
+        aws-secret-access-key: ${{ inputs.AWS_SECRET_KEY }}
+        aws-region: ${{ env.REGION }}
+
+    # Install the latest version of Terraform CLI and configure the Terraform CLI configuration file with a Terraform Cloud user API token
+    - name: Setup Terraform v1.2.6
+      uses: hashicorp/setup-Terraform@v2
+      with:
+        terraform_version: 1.2.6
+        terraform_wrapper: false
+                        
+    # Initialize a new or existing Terraform working directory by creating initial files, loading any remote state, downloading modules, etc.
+    - name: Terraform Init
+      shell: bash
+      id: init
+      run: terraform init
+      working-directory: 'iac-terraform'

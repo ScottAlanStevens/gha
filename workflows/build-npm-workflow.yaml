@@ -1,0 +1,45 @@
+name: Build-Npm-Workflow
+
+on:
+  workflow_call:
+    inputs:
+      artifactRetentionDays:
+        description: "Number of days to retain a given release artifact created by a pipeline execution, for pull requests the artifact will exist for 1 day"
+        required: false
+        type: number
+        default: 30
+      artifactPath:
+        required: true
+        type: string
+
+    outputs:
+      artifactName:
+        description: "The artifact name"
+        value: ${{ jobs.Build.outputs.artifactName }}
+
+jobs:
+  Build:
+    name: 'Build Binaries'
+    runs-on: ubuntu-latest
+
+    outputs:
+      # semVersion: ${{ steps.semver.outputs.semVerNumber }}
+      artifactName: ${{ github.event.repository.name }}-${{ github.sha }}
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    - name: Build
+      run: |
+        make build
+
+    - name: Upload Artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: ${{ env.REPO_NAME }}-${{ github.sha }}
+        path: ${{ inputs.artifactPath }}*.zip
+        retention-days: ${{ env.RETENTION }}
+      env:
+        REPO_NAME: ${{ github.event.repository.name }}
+        RETENTION: 1

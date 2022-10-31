@@ -1,0 +1,103 @@
+name: Terraform Workflow
+
+on:
+  workflow_call:
+    inputs:
+      artifactName:
+        description: "The artifact name"
+        required: true
+        type: string
+      environment:
+        description: "The environment name"
+        required: true
+        type: string
+
+    secrets:
+      AWS_ROLE_TO_ASSUME:
+        required: true
+      AWS_ACCESS_KEY:
+        required: true
+      AWS_SECRET_KEY:
+        required: true
+
+jobs:
+  Terraform-Plan:
+    name: 'Terraform Plan'
+    runs-on: ubuntu-latest
+
+    # Use the Bash shell regardless whether the GitHub Actions runner is ubuntu-latest, macos-latest, or windows-latest
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+    # Checkout the repository to the GitHub Actions runner
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    - name: Configure Terraform
+      id: configureTerraform
+      uses: ScottAlanStevens/PortfolioManagerApi/.github/actions/configure-terraform@main
+      with:
+        AWS_ROLE_TO_ASSUME: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+        AWS_SESSION_NAME: ${{ github.sha }}
+        AWS_ACCESS_KEY: ${{ secrets.AWS_ACCESS_KEY }}
+        AWS_SECRET_KEY: ${{ secrets.AWS_SECRET_KEY }}
+
+    - name: Download Artifact
+      id: downloadArtifact
+      uses: actions/download-artifact@v3
+      with:
+        path: ./artifacts
+
+    - name: Display structure of downloaded files
+      run: ls -R
+      working-directory: artifacts
+
+    # Generates an execution plan for Terraform
+    - name: Terraform Plan
+      id: plan
+      run: |
+        terraform plan -input=false --var-file vars/${{ inputs.environment }}.tfvars -var artifact_path="${{ steps.downloadArtifact.outputs.download-path }}/${{ inputs.artifactName }}"
+      working-directory: 'iac-terraform'
+
+  Terraform-Apply:
+    name: 'Terraform Apply'
+    runs-on: ubuntu-latest
+    needs: Terraform-Plan
+
+    # Use the Bash shell regardless whether the GitHub Actions runner is ubuntu-latest, macos-latest, or windows-latest
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+    # Checkout the repository to the GitHub Actions runner
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    - name: Configure Terraform
+      id: configureTerraform
+      uses: ScottAlanStevens/PortfolioManagerApi/.github/actions/configure-terraform@main
+      with:
+        AWS_ROLE_TO_ASSUME: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+        AWS_SESSION_NAME: ${{ github.sha }}
+        AWS_ACCESS_KEY: ${{ secrets.AWS_ACCESS_KEY }}
+        AWS_SECRET_KEY: ${{ secrets.AWS_SECRET_KEY }}
+
+    - name: Download Artifact
+      id: downloadArtifact
+      uses: actions/download-artifact@v3
+      with:
+        path: ./artifacts
+
+    - name: Display structure of artifacts
+      run: ls -R
+      working-directory: artifacts
+
+    # Generates an execution plan for Terraform
+    - name: Terraform Apply
+      id: plan
+      run: |
+        terraform apply -input=false -auto-approve --var-file vars/${{ inputs.environment }}.tfvars -var artifact_path="${{ steps.downloadArtifact.outputs.download-path }}/${{ inputs.artifactName }}"
+      working-directory: 'iac-terraform'

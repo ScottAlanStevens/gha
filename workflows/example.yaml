@@ -1,0 +1,29 @@
+name: PM Build and Deploy
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+    - main
+  pull_request:
+    branches:
+    - main
+
+jobs:
+
+  Build:
+    uses: ScottAlanStevens/PortfolioManagerApi/.github/workflows/build-npm-workflow.yaml@main
+    with:
+      artifactRetentionDays: 1
+      artifactPath: ./artifacts/
+
+  Terraform:
+    uses: ScottAlanStevens/PortfolioManagerApi/.github/workflows/terraform-workflow.yaml@main
+    needs: Build
+    with:
+      artifactName: ${{ needs.Build.outputs.artifactName }}
+      environment: "development"
+    secrets:
+      AWS_ROLE_TO_ASSUME: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+      AWS_ACCESS_KEY: ${{ secrets.AWS_ACCESS_KEY }}
+      AWS_SECRET_KEY: ${{ secrets.AWS_SECRET_KEY }}
