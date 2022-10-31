@@ -41,20 +41,23 @@ runs:
     id: SemVerStep
     shell: bash
     run: |
-      prefix="v"
+      majorVersion=${{ inputs.majorVersion }}
+      minorVersion=${{ inputs.minorVersion }}
+      seed=${{ inputs.seed }}
+      prefix="v" ##Always prefix tags wih a v, respecting the forma vx.y.z
       version="1.2.3"
+
+      # Get the latest tag (the latest one respective the regex v[0-9].*)
+      git fetch -f --all --tags
+      version=`git tag | sort -r --version-sort | head -n1`
+
+
+
       echo "::set-output name=semanticVersion::$(echo $prefix$version)"
       echo "final version is: " $prefix$version
 
 
-#     majorVersion=${{ inputs.majorVersion }}
-#     minorVersion=${{ inputs.minorVersion }}
-#     seed=${{ inputs.seed }}
-#     prefix="v" ##Always prefix tags wih a v, respecting the forma vx.y.z
 
-#     # Get the latest tag (the latest one respective the regex v[0-9].*)
-#     git fetch -f --all --tags
-#     version=`git tag | sort -r --version-sort | head -n1`
 
 #     if [ -z "$version" ]; then
 #       echo "No version set - creating very first one"
