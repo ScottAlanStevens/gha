@@ -1,0 +1,60 @@
+name: Git Tag
+description: "Creates an annotated tag in the git repository"
+inputs:
+  version:
+    description: "The version that will be used for tagging the repository. Example: v1.0.1"
+    required: true
+    type: string
+  message:
+    description: "A message to be used in the tag. Example: Feature XPTO responsible for enalbling ABC"
+    required: false
+    type: string
+    default: ""
+  gitUser:
+    required: false
+    type: string
+    default: "scottalanstevens"
+  gitUserEmail:
+    required: false
+    type: string
+    default: "scott.alan.stevens@gmail.com"
+  autoTagging:
+    description: "Enable autoTagging based on semantic versioning every time code is merged into release/main branch"
+    required: false
+    type: boolean
+    default: true    
+
+runs:
+  using: "composite"
+  steps:
+
+    - name: Tag Repo Version
+      id: tagVersion
+      if: ${{ inputs.autoTagging == 'true' }}
+      shell: bash
+      run: |
+
+        if [ ! -z "${{ inputs.message }}" ]; then
+          MESSAGE="${{ inputs.message }}"
+        else
+          MESSAGE="${{ inputs.version }}"
+        fi
+
+        COMMIT=$(git rev-parse HEAD)
+
+        echo "Tagging $COMMIT with tag ${{ inputs.version }} and message $MESSAGE"
+
+        git config --global user.name ${{ inputs.gitUser }}
+        git config --global user.email ${{ inputs.gitUserEmail }}
+
+        #IMPORTANT: tag using annotated tags always in order to allow getting the latest annotated tags dunring semver step!
+        git tag -a "${{ inputs.version }}" -m "$MESSAGE" $COMMIT
+
+        EXIT=$?
+        if [ "$EXIT" != "0" ]; then
+          echo "Failed to tag version ${{ inputs.version }}, check if this version already exists in the repository"
+        else
+          echo "Successfully tagged version ${{ inputs.version }}"
+        fi
+
+        git push origin "${{ inputs.version }}"
