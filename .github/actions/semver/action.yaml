@@ -1,0 +1,43 @@
+name: Semantic Versioning
+description: "Creates a SemVer number for a release and tags the repository in the format vx.y.z. Valid tags are: v0.1.3, v1.1.5, v2.0.5-someSuffix"
+inputs:
+  majorVersion:
+    description: "Sets the major version. The value passed will be used to set the major version, if higher than the latest used as tag then the count will be restarted for both minorVersion and seed. For instance. previous version was 1.1.12, new majorVersion=2, new semver will be 2.0.1"
+    required: false
+    type: number
+    default: 0
+  minorVersion:
+    description: "Sets the minor version. The value passed will be used to set the minor version, if higher than the latest used as tag then the count will be restarted for the seed. For instance. previous version was 1.1.12, new minorVersion=2, new semver will be 1.2.1"
+    required: false
+    type: number
+    default: 0
+  seed:
+    description: "Sets the seed for the build number. The value passed will be used to set the seed where the cound will be considered to start, if higher than the latest used as tag then the count will be start from the new seed, if lower it will keep using the current value. For instance: previous version was 1.1.12, new seed=28, new semver will be 1.1.28"
+    required: false
+    type: number
+    default: 1
+  releaseBranch:
+    description: "The branch to be used for releases. This value wil be used to identify the branch to be tagged with a semver"
+    required: false
+    type: string
+    default: "refs/heads/main" #defines a final tag for the release branch only, the other tags contains a hash
+
+outputs:
+  semVerNumber:
+    description: Semantic Verion Number
+    value: ${{ steps.SemVerStep.outputs.semanticVersion }}
+  isInReleaseBranch:
+    value: ${{ steps.checkIsReleaseBranch.outputs.isInReleaseBranch }}
+
+runs:
+  using: "composite"
+  steps:
+
+  - name: Check if in release branch
+    id: checkIsReleaseBranch
+    shell: bash
+    run: "if [[ \"$GITHUB_REF\" == \"${{ inputs.releaseBranch }}\" ]]; then\n  echo \"In release branch - setting semver\" \n  echo \"::set-output name=isInReleaseBranch::true\"\nelse\n  echo \"Not in release branch - setting hash as semver suffix\"\n  echo \"::set-output name=isInReleaseBranch::false\"\nfi\n  #magic___^_^___line\n"
+  - name: SemVer
+    id: SemVerStep
+    shell: bash
+    run: "majorVersion=${{ inputs.majorVersion }}\nminorVersion=${{ inputs.minorVersion }}\nseed=${{ inputs.seed }}\nprefix=\"v\" ##Always prefix tags wih a v, respecting the forma vx.y.z\n  #magic___^_^___line\n# Get the latest tag (the latest one respective the regex v[0-9].*)\ngit fetch -f --all --tags\nversion=`git tag | sort -r --version-sort | head -n1`\n  #magic___^_^___line\nif [ -z \"$version\" ]; then\n  echo \"No version set - creating very first one\"\n  version=$majorVersion.$minorVersion.$seed\n  echo \"New tag is \" $prefix$version        \nelse\n  #magic___^_^___line\n  echo \"Latest version is \" $version\n  #magic___^_^___line\n  regex='w*([[:digit:]]+\\.[[:digit:]]+\\.[[:digit:]]*)'\n  if [[ \"$version\" =~ $regex ]]; then\n    version=\"${BASH_REMATCH[1]}\"\n  else \n    echo \"error: unrecognized tag value $version\"\n    exit 1\n  fi\n    #magic___^_^___line\n  version_split=(${version//./ })\n  major=${version_split[0]}\n  minor=${version_split[1]}\n  build=${version_split[2]} \n    #magic___^_^___line\n  #updates major version if new one is higher than current one\n  if [[ $majorVersion -gt $major ]]; then\n    echo \"Major version update identified from $major to $majorVersion\"\n    major=$((major+1))\n    minor=0\n    build=0\n  fi\n    #magic___^_^___line\n  #updates minor version if new one is higher than current one\n  if [[ $minorVersion -gt $minor ]]; then\n    echo \"Minor version update identified from $major.$minor to $major.$minorVersion\" \n    minor=$((minor+1))\n    build=0\n  fi\n    #magic___^_^___line\n  #updates build version based on seed and current build value in the latest tag\n  if [[ $seed -gt 1 && $seed -gt $build ]]; then\n    build=$seed\n    echo \"updated build based on seed == $seed passed $major.$minor.$build\"\n  else\n    build=$((build+1))\n    echo \"Seed value is $seed, increasing it in +1\"\n  fi\n    #magic___^_^___line\n  version=$major.$minor.$build\n    #magic___^_^___line\nfi\n    #magic___^_^___line\n# Setting value in a env var to be used in the next steps\nif [[ \"${{ steps.checkIsReleaseBranch.outputs.isInReleaseBranch }}\" == \"false\" ]]; then\n  gitHash=$(git rev-parse --short HEAD)\n  echo \"::set-output name=semanticVersion::$(echo $prefix$version-$gitHash)\"\n  echo \"final version is: \" $prefix$version-$gitHash\nelse\n  echo \"::set-output name=semanticVersion::$(echo $prefix$version)\"\n  echo \"final version is: \" $prefix$version\nfi\n"
