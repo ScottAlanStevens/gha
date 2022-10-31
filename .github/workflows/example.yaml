@@ -12,13 +12,13 @@ on:
 jobs:
 
   Build:
-    uses: ScottAlanStevens/gha/workflows/build-npm-workflow.yaml@main
+    uses: ScottAlanStevens/gha/.github/workflows/build-npm-workflow.yaml@main
     with:
       artifactRetentionDays: 1
       artifactPath: ./artifacts/
 
   Terraform:
-    uses: ScottAlanStevens/gha/workflows/terraform-workflow.yaml@main
+    uses: ScottAlanStevens/gha/.github/workflows/terraform-workflow.yaml@main
     needs: Build
     with:
       artifactName: ${{ needs.Build.outputs.artifactName }}

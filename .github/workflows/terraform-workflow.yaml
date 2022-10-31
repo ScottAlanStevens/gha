@@ -37,7 +37,7 @@ jobs:
 
     - name: Configure Terraform
       id: configureTerraform
-      uses: ScottAlanStevens/gha/actions/configure-terraform@main
+      uses: ScottAlanStevens/gha/.github/actions/configure-terraform@main
       with:
         AWS_ROLE_TO_ASSUME: ${{ secrets.AWS_ROLE_TO_ASSUME }}
         AWS_SESSION_NAME: ${{ github.sha }}
@@ -78,7 +78,7 @@ jobs:
 
     - name: Configure Terraform
       id: configureTerraform
-      uses: ScottAlanStevens/gha/actions/configure-terraform@main
+      uses: ScottAlanStevens/gha/.github/actions/configure-terraform@main
       with:
         AWS_ROLE_TO_ASSUME: ${{ secrets.AWS_ROLE_TO_ASSUME }}
         AWS_SESSION_NAME: ${{ github.sha }}
