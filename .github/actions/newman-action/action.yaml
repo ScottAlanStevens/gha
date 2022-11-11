@@ -1,0 +1,60 @@
+name: Newman
+description: "Runs Postman Collections with Newman"
+
+inputs:
+  postmanCollection:
+    required: true
+    type: string
+  postmanEnvironment:
+    required: true
+    type: string
+  htmlReportExport:
+    required: true
+    type: string
+  htmlReportTitle:
+    required: false
+    default: ${{ github.event.repository.name }} Tests
+    type: string
+  artifactRetentionDays:
+    description: "Number of days to retain the report"
+    required: false
+    type: number
+    default: 1
+
+runs:
+  using: "composite"
+  steps:
+  - name: Install node
+    uses: actions/setup-node@v1
+    with:
+      node-version: '16'
+
+  - name: Install newman
+    shell: bash
+    run: |
+      npm install -g newman newman-reporter-htmlextra
+
+  - name: Run Newman
+    shell: bash
+    continue-on-error: true
+    run: |
+      newman run ${{ inputs.postmanCollection }} \
+      -e ${{ inputs.postmanEnvironment }} \
+      --bail \
+      -r cli,htmlextra \
+      --reporter-htmlextra-export="${{ inputs.htmlReportExport }}" \
+      --reporter-htmlextra-title="${{ inputs.htmlReportTitle }}" \
+      --reporter-htmlextra-browserTitle="${{ inputs.htmlReportTitle }}" \
+      --reporter-htmlextra-logs="true"
+
+  - name: Generate Timestamp
+    shell: bash
+    run: |
+      echo "TIMESTAMP=$(date +'%Y-%m-%dT%H:%M:%S' | sed 's/:/_/g')" >> ${GITHUB_ENV}
+
+  - name: Upload Report
+    uses: actions/upload-artifact@v3
+    with:
+      name: ${{ github.event.repository.name }}-Postman-${{ env.TIMESTAMP }}
+      path: ./${{ inputs.htmlReportExport }}
+      retention-days: ${{ inputs.artifactRetentionDays }}
