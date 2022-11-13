@@ -1,0 +1,79 @@
+name: Build-Workflow
+
+on:
+  workflow_call:
+    inputs:
+      artifactRetentionDays:
+        description: "Number of days to retain a given release artifact created by a pipeline execution, for pull requests the artifact will exist for 1 day"
+        required: false
+        type: number
+        default: 30
+      artifactPath:
+        required: true
+        type: string
+        default: ./artifacts/
+      goVersion:
+        required: false
+        type: string
+        default: "1.19"
+
+    outputs:
+      artifactName:
+        description: "The artifact name"
+        value: ${{ jobs.Build.outputs.artifactName }}
+      tag:
+        description: "The artifact tag"
+        value: ${{ jobs.Build.outputs.tag }}
+
+jobs:
+  Build:
+    name: 'Compile'
+    runs-on: ubuntu-latest
+
+    outputs:
+      artifactName: ${{ github.event.repository.name }}-${{ steps.semver.outputs.semVerNumber }}
+      tag: ${{ steps.semver.outputs.semVerNumber }}
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    - name: Apply Semantic Versioning
+      id: semver
+      uses: ScottAlanStevens/gha/.github/actions/semver@main
+      with:
+        majorVersion: 0
+        minorVersion: 0
+        seed: 1
+        releaseBranch: "refs/heads/main"
+
+    - name: Tag Repository
+      # if: ${{ inputs.triggerEvent == 'push' && steps.semver.outputs.isInReleaseBranch == 'true' }}
+      if: ${{ steps.semver.outputs.isInReleaseBranch == 'true' }}
+      id: tagRepository
+      uses: ScottAlanStevens/gha/.github/actions/tag@main
+      with:
+        version: "${{ steps.semver.outputs.semVerNumber }}"
+        message: ${{ github.event.head_commit.message }}
+        autoTagging: true
+
+    - name: Setting up Golang ${{ inputs.goVersion }}
+      uses: actions/setup-go@v3
+      with:
+        go-version: ${{ inputs.goVersion }}
+
+    - name: Build
+      run: |
+        make version=${{ github.sha }} build
+
+    - name: Upload Artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: ${{ env.REPO_NAME }}-${{ steps.semver.outputs.semVerNumber }}
+        path: |
+          ${{ inputs.artifactPath }}*.zip
+          iac-terraform/
+        retention-days: ${{ env.RETENTION }}
+      env:
+        REPO_NAME: ${{ github.event.repository.name }}
+        RETENTION: ${{ inputs.artifactRetentionDays }}
