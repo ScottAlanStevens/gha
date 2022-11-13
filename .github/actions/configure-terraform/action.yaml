@@ -14,6 +14,10 @@ inputs:
   AWS_SECRET_KEY:
     required: false
     description: "Respective session name for the assumed role"
+  working-directory:
+    required: false
+    type: string
+    default: "iac-terraform"
 
 runs:
   using: "composite"
@@ -43,4 +47,4 @@ runs:
     shell: bash
     id: init
     run: terraform init
-    working-directory: 'iac-terraform'
+    working-directory: ${{ inputs.working-directory }}
