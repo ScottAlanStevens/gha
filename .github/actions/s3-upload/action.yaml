@@ -1,0 +1,55 @@
+name: S3 upload
+description: "Upload files to s3 bucket"
+
+inputs:
+  AWS_ROLE_TO_ASSUME:
+    required: true
+    description: "AWS role to be assumed during workflow execution"
+  AWS_SESSION_NAME:
+    required: true
+    description: "Respective session name for the assumed role"  
+  region:
+    required: false
+    type: string
+    default: "us-east-1"
+  source-folder:
+    required: false
+    type: string
+    default: "build"
+  bucket-name:
+    required: true
+    type: string
+  bucket-folder:
+    required: false
+    type: string
+    default: ""
+  useSSE:
+    required: false
+    type: boolean
+    default: false
+    description: Key used to denote whether to upload s3 contents using the sse key option
+
+runs:
+  using: "composite"
+  steps:
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v1-node16
+      with:
+        aws-region: ${{ inputs.region }}
+        role-to-assume: ${{ inputs.AWS_ROLE_TO_ASSUME }}
+        role-session-name: ${{ inputs.AWS_SESSION_NAME }}
+
+    - name: Copying files on S3 Bucket
+      shell: bash
+      env:
+        SOURCE_FOLDER: ${{ inputs.source-folder }}
+        BUCKET_NAME: ${{ inputs.bucket-name }}
+        IS_RELEASE_BRANCH: ${{ inputs.isReleaseBranch }}
+      run: |
+        echo "Source folder == " ${SOURCE_FOLDER}
+        echo "Bucket Name == " ${BUCKET_NAME}
+        if ${{ inputs.useSSE }} ; then
+          aws s3 cp ${SOURCE_FOLDER} s3://${BUCKET_NAME}/${{ inputs.bucket-folder }} --recursive --sse AES256
+        else
+          aws s3 cp ${SOURCE_FOLDER} s3://${BUCKET_NAME}/${{ inputs.bucket-folder }} --recursive
+        fi

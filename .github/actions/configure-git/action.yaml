@@ -1,0 +1,19 @@
+name: Configure Git
+description: "Setup Git Credentials for accessing private repositories"
+
+inputs:
+  GH_TOKEN:
+    required: true
+    description: "GH token to be used to access private packages"
+
+runs:
+  using: "composite"
+  steps:
+
+  - name: Setup Git credentials for private modules
+    shell: bash
+    run: |
+      git config --local --remove-section http."https://github.com/"
+      git config --global url."https://git:${GH_TOKEN}@github.com/ScottAlanStevens".insteadOf "https://github.com/ScottAlanStevens"
+    env:
+      GH_TOKEN: ${{ inputs.GH_TOKEN }}

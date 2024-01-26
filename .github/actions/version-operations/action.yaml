@@ -1,0 +1,72 @@
+name: Version Operations
+description: "To put and retrieve versions of applications"
+
+inputs:
+  AWS_ROLE_TO_ASSUME:
+    required: false
+    description: "AWS role to be assumed during workflow execution"
+  AWS_SESSION_NAME:
+    required: false
+    description: "Respective session name for the assumed role"
+  environment:
+    type: string
+    required: true
+    description: "The environment name for which either the versions will be put or retrieved"
+  region:
+    required: false
+    type: string
+    default: "us-east-1"
+  serviceName:
+    required: true
+    description: "Service Name to retrieve or put version into SSM Parameter Store"
+    type: string
+  isVersionPutOperation:
+    required: false
+    description: "Flag to denote whether the version operation is put"
+    type: boolean
+    default: false
+  isVersionGetOperation:
+    required: false
+    description: "Flag to denote whether the version operation is get"
+    type: boolean
+    default: false
+  serviceVersion:
+    required: false
+    description: "The application version to put in the put version operation"
+    type: string
+    default: ""
+
+outputs:
+  serviceVersion:
+    value: ${{ steps.getVersion.outputs.serviceVersion }}
+
+runs:
+  using: "composite"
+  steps:
+
+    - name: Configure AWS credentials
+      id: configureAwsCreds
+      uses: aws-actions/configure-aws-credentials@v1-node16
+      with:
+        aws-region: ${{ inputs.region }}
+        role-to-assume: ${{ inputs.AWS_ROLE_TO_ASSUME }}
+        role-session-name: ${{ inputs.AWS_SESSION_NAME }}
+
+    - name: Put Version
+      id: putVersion
+      if: ${{ inputs.isVersionPutOperation == 'true' }}
+      run: |
+        aws ssm put-parameter \
+        --name "version-${{ inputs.serviceName }}-${{ inputs.environment }}" \
+        --type "String" \
+        --value "${{ inputs.serviceVersion }}" \
+        --overwrite
+      shell: bash
+
+    - name: Get Version
+      id: getVersion
+      if: ${{ inputs.isVersionGetOperation == 'true' }}
+      run: |
+        serviceVersion=$(aws ssm get-parameter --name "version-${{ inputs.serviceName }}-${{ inputs.environment }}" --query Parameter.Value)
+        echo "serviceVersion=$serviceVersion" >> $GITHUB_OUTPUT
+      shell: bash

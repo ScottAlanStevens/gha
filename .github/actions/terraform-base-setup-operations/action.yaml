@@ -1,0 +1,145 @@
+name: 'Terraform Base Setup Operations'
+description: "To setup the base terraform setup of s3 bucket and dynamodb table"
+
+inputs:
+  AWS_ROLE_TO_ASSUME:
+    required: false
+    description: "AWS role to be assumed during workflow execution"
+  AWS_SESSION_NAME:
+    required: false
+    description: "Respective session name for the assumed role"
+  environment:
+    type: string
+    required: true
+    description: "The environment name for which the s3 bucket and the dynamodb table will be created"
+  region:
+    required: false
+    type: string
+    default: "us-east-1"
+  iac-state-bucket-name:
+    required: true
+    type: string
+    description: "The bucket where iac state of the service will be stored"
+  iac-state-dynamodb-table-name:
+    required: true
+    type: string
+    description: "The dynamodb table which will be used by iac during its execution to avoid conflicts"
+
+runs:
+  using: "composite"
+  steps:
+
+    - name: Configure AWS credentials
+      id: configureAwsCreds
+      uses: aws-actions/configure-aws-credentials@v1-node16
+      with:
+        aws-region: ${{ inputs.region }}
+        role-to-assume: ${{ inputs.AWS_ROLE_TO_ASSUME }}
+        role-session-name: ${{ inputs.AWS_SESSION_NAME }}
+
+    - name: Create Initial Terraform Backend
+      id: createInitialTerraformBackend
+      run: |
+        #! /usr/bin/env bash
+        #
+        # This file is used to set up and document the initial terraform backend storage and locking mechanism. The only time you should need to run it
+        # is if you are setting up these two things for the first time in a new region. If you're not sure, check with DevOps.
+
+
+        # abort on nonzero exitstatus
+        set -o errexit
+        # abort on unbound variable
+        set -o nounset
+        # don't hide errors within pipes
+        set -o pipefail
+
+        readonly script_name=$(basename "${0}")
+        readonly script_dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
+        IFS=$'\t\n'   # Split on newlines and tabs (but not on spaces)
+
+        AWS_REGION="${{ inputs.region }}"
+        TF_STATE_BUCKET="${{ inputs.iac-state-bucket-name }}" ## to create buckets for different env, change this name and also keep in mind change the profile while running the command
+        TF_STATE_DYNAMO_DB_TABLE="${{ inputs.iac-state-dynamodb-table-name }}"
+
+        main() {
+
+        BUCKET_STATUS=$(aws s3api head-bucket --bucket "${TF_STATE_BUCKET}" 2>&1 || true )
+
+        if echo "${BUCKET_STATUS}" | grep 'Not Found';
+        then
+          echo "Bucket Doesn't Exist";
+          perform_bucket_operations
+        elif echo "${BUCKET_STATUS}" | grep 'Forbidden';
+        then
+          echo "Bucket Exists but is probably you don't have permissions"
+        elif echo "${BUCKET_STATUS}" | grep 'Bad Request';
+        then
+          echo "Bucket name specified is less than 3 or greater than 63 characters"
+        else
+          echo "Bucket Exists and you have the permissions to access it. No need to create it again";
+        fi
+
+        DYNAMODB_STATUS=$(aws dynamodb describe-table --table-name "${TF_STATE_DYNAMO_DB_TABLE}" 2>&1 || true )
+
+        if echo "${DYNAMODB_STATUS}" | grep 'NotFound';
+        then
+          echo "DynamoDB Table doesn't Exist";
+          perform_dynamodb_operations
+        elif echo "${DYNAMODB_STATUS}" | grep 'Forbidden';
+        then
+          echo "DynamoDB Table Exists but is probably you don't have permissions"
+        elif echo "${DYNAMODB_STATUS}" | grep 'Bad Request';
+        then
+          echo "DynamoDB Table might exist, but the name specified doesn't seem to be a valid table name"
+        else
+          echo "DynamoDB Table exists and you have the permissions to access it. No need to create it again";
+        fi
+
+
+        }
+
+        perform_bucket_operations() {
+
+        echo "Since bucket doesn't exist, creating bucket"
+
+        aws s3api create-bucket \
+          --region "${AWS_REGION}" \
+          --bucket "${TF_STATE_BUCKET}"
+
+        echo "Applying policies on bucket"
+
+        aws s3api put-bucket-versioning \
+            --bucket "${TF_STATE_BUCKET}" \
+            --versioning-configuration Status=Enabled
+
+        aws s3api put-public-access-block \
+            --bucket "${TF_STATE_BUCKET}" \
+            --public-access-block-configuration "BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true"
+
+        aws s3api put-bucket-encryption \
+            --bucket "${TF_STATE_BUCKET}" \
+            --server-side-encryption-configuration '{"Rules": [{"ApplyServerSideEncryptionByDefault": {"SSEAlgorithm": "AES256"}}]}'
+
+        echo "Bucket creation and applying policies is done"
+
+        }
+
+        perform_dynamodb_operations() {
+
+        echo "Since dynamodb table doesn't exist, creating dynamodb table"
+
+        aws dynamodb create-table \
+          --region "${AWS_REGION}" \
+          --table-name "${TF_STATE_DYNAMO_DB_TABLE}" \
+          --attribute-definitions AttributeName=LockID,AttributeType=S \
+          --key-schema AttributeName=LockID,KeyType=HASH \
+          --provisioned-throughput ReadCapacityUnits=5,WriteCapacityUnits=5
+
+        echo "DynamoDB creation is done"
+
+        }
+
+        ### initilaizing the script
+        main
+
+      shell: bash

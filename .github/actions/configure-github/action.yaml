@@ -1,0 +1,19 @@
+name: Configure Github
+description: "Makes the installation and initial terraform configuration"
+
+inputs:
+  GH_TOKEN:
+    required: true
+    description: "Github token to be used to access TG repositories"
+
+runs:
+  using: "composite"
+  steps:
+  - name: Setup Github credentials for TG repositories
+    shell: bash
+    run: |
+      git init
+      git config --local --remove-section http."https://github.com/"
+      git config --global url."https://git:${GH_TOKEN}@github.com/ScottAlanStevens".insteadOf "https://github.com/ScottAlanStevens"
+    env:
+      GH_TOKEN: ${{ inputs.GH_TOKEN }}

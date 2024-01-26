@@ -1,0 +1,29 @@
+name: File Exists
+inputs:
+  file-name:
+    required: true
+    type: string
+  working-directory:
+    required: false
+    type: string
+    
+outputs:
+  fileExists:
+    value: ${{ steps.testFileExists.outputs.fileExists }}
+
+runs:
+  using: "composite"
+  steps:
+
+    - name: Check if in release branch
+      id: testFileExists
+      shell: bash
+      run: |
+        if test -f "${{ inputs.file-name }}"; then
+          echo "File exists!" 
+          echo "fileExists=true" >> $GITHUB_OUTPUT
+        else
+          echo "File does not exist!" 
+          echo "fileExists=false" >> $GITHUB_OUTPUT
+        fi
+      working-directory: ${{ inputs.working-directory }}

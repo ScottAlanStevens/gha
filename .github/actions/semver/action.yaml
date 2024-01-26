@@ -45,10 +45,10 @@ runs:
       run: |
         if [[ "$GITHUB_REF" == "${{ inputs.releaseBranch }}" ]]; then
           echo "In release branch - setting semver" 
-          echo "::set-output name=isInReleaseBranch::true"
+          echo "isInReleaseBranch=true" >> $GITHUB_OUTPUT
         else
           echo "Not in release branch - setting hash as semver suffix"
-          echo "::set-output name=isInReleaseBranch::false"
+          echo "isInReleaseBranch=false" >> $GITHUB_OUTPUT
         fi
 
     - name: SemVer
@@ -116,9 +116,10 @@ runs:
         # Setting value in a env var to be used in the next steps
         if [[ "${{ steps.checkIsReleaseBranch.outputs.isInReleaseBranch }}" == "false" ]]; then
           gitHash=$(git rev-parse --short HEAD)
-          echo "::set-output name=semanticVersion::$(echo $prefix$version-$gitHash)"
+          echo "semanticVersion=$(echo $prefix$version-$gitHash)" >> $GITHUB_OUTPUT
           echo "final version is: " $prefix$version-$gitHash
         else
-          echo "::set-output name=semanticVersion::$(echo $prefix$version)"
+          echo "semanticVersion=$(echo $prefix$version)" >> $GITHUB_OUTPUT
           echo "final version is: " $prefix$version
         fi
+

@@ -1,0 +1,36 @@
+name: Cloudfront Distribution Refresh
+description: "Invalidates the cache for cloudfront distribution"
+
+inputs:
+  AWS_ROLE_TO_ASSUME:
+    required: false
+    description: "AWS role to be assumed during workflow execution"
+  AWS_SESSION_NAME:
+    required: false
+    description: "Respective session name for the assumed role"  
+  region:
+    required: false
+    type: string
+    default: "us-east-1"
+  bucket-name:
+    required: true
+    type: string
+
+runs:
+  using: "composite"
+  steps:
+
+    - name: Configure AWS credentials
+      id: configureAwsCreds
+      uses: aws-actions/configure-aws-credentials@v1-node16
+      with:
+        aws-region: ${{ inputs.region }}
+        role-to-assume: ${{ inputs.AWS_ROLE_TO_ASSUME }}
+        role-session-name: ${{ inputs.AWS_SESSION_NAME }}
+
+    - name: Invalidate Cloudfront Distribution Cache
+      id: invalidateCloudfrontCache
+      run: |
+        DISTRIBUTION_ID=$(aws cloudfront list-distributions --query "DistributionList.Items[*].{id:Id,origin:Origins.Items[0].Id}[?origin=='S3-${{ inputs.bucket-name }}'].id" --output text)
+        aws cloudfront create-invalidation --distribution-id $DISTRIBUTION_ID --paths "/*"
+      shell: bash

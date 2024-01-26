@@ -8,31 +8,39 @@ inputs:
   AWS_SESSION_NAME:
     required: false
     description: "Respective session name for the assumed role"
-  AWS_ACCESS_KEY:
+  environment:
     required: false
-    description: "Respective session name for the assumed role"
-  AWS_SECRET_KEY:
+    type: string
+  region:
     required: false
-    description: "Respective session name for the assumed role"
+    type: string
+    default: "us-east-1"
   working-directory:
     required: false
     type: string
     default: "iac-terraform"
+  isTFBackend:
+    required: true
+    type: boolean
+    default: false
+    description: "To specify whether terraform backend has to initialized using the tfbackend or not"
+  isTFWorkspace:
+    required: true
+    type: boolean
+    default: false
+    description: "To specify whether terraform backend has to initialized using a workspace or not"
 
 runs:
   using: "composite"
   steps:
 
   - name: Configure AWS credentials
-    uses: aws-actions/configure-aws-credentials@v1
+    uses: aws-actions/configure-aws-credentials@v1-node16
     env:
       REGION: 'us-east-1'
     with:
-      role-duration-seconds: 3600
       role-to-assume: ${{ inputs.AWS_ROLE_TO_ASSUME }}
       role-session-name: ${{ inputs.AWS_SESSION_NAME }}
-      aws-access-key-id: ${{ inputs.AWS_ACCESS_KEY }}
-      aws-secret-access-key: ${{ inputs.AWS_SECRET_KEY }}
       aws-region: ${{ env.REGION }}
 
   # Install the latest version of Terraform CLI and configure the Terraform CLI configuration file with a Terraform Cloud user API token
@@ -42,9 +50,30 @@ runs:
       terraform_version: 1.2.6
       terraform_wrapper: false
 
-  # Initialize a new or existing Terraform working directory by creating initial files, loading any remote state, downloading modules, etc.
-  - name: Terraform Init
+  # Test Backend Config Exists if isTFBackend is true
+  - name: Test Backend Config Exists
+    if: ${{ inputs.isTFBackend == 'true' }}
+    id: backendConfigExists
+    uses: ScottAlanStevens/gha/.github/actions/file-exists@main
+    with:
+      file-name: "tfbackends/${{ inputs.environment }}.tfbackend"
+      working-directory: ${{ inputs.working-directory }}
+
+  # Initialize Terraform by TFBackend method
+  - name: Terraform Init - TF Backend based
     shell: bash
-    id: init
-    run: terraform init
+    if: ${{ inputs.isTFBackend == 'true' && steps.backendConfigExists.outputs.fileExists == 'true' }}
+    id: init_tfBackend
+    run: |
+      terraform init -backend-config=tfbackends/"${{ inputs.environment }}".tfbackend --upgrade
+    working-directory: ${{ inputs.working-directory }}
+
+  # Initialize Terraform by TF Workspace Method
+  - name: Terraform Init - TF Workspace based
+    shell: bash
+    if: ${{ inputs.isTFWorkspace == 'true' }}
+    id: init_tfWorkspace
+    run: |
+      terraform init --upgrade
+      terraform workspace select ${{ inputs.environment }}
     working-directory: ${{ inputs.working-directory }}

@@ -1,0 +1,40 @@
+name: TFLint
+
+## The function of this action is to run terraform and aws rule set against the terraform code for modules for checking any errors in terms of configuration and values
+
+description: "Use TFLint to lint terraform for aws and terraform specific ruleset"
+inputs:
+  module-directory:
+    description: "The module directory where tflint will evaluate if any errors"
+    required: true
+    type: string
+  tf-lint-log-level:
+    description: "The TFLint log level"
+    required: false
+    default: info
+    type: string
+
+runs:
+  using: "composite"
+  steps:
+
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    - name: Install TFLint
+      id: install_tflint
+      shell: bash
+      run: |
+        curl -s https://raw.githubusercontent.com/terraform-linters/tflint/master/install_linux.sh | bash
+
+    - name: TFLint Init
+      id: tflint_init
+      shell: bash
+      run: |
+        TFLINT_LOG=${{ inputs.tf-lint-log-level }} tflint --init
+
+    - name: TFLint Run
+      id: tflint_run
+      shell: bash
+      run: |
+        TFLINT_LOG=${{ inputs.tf-lint-log-level }} tflint --module ${{ inputs.module-directory }}

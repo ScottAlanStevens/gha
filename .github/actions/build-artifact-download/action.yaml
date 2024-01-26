@@ -1,0 +1,54 @@
+name: S3 upload
+description: "Download files from s3 bucket"
+
+inputs:
+  AWS_ROLE_TO_ASSUME:
+    required: false
+    description: "AWS role to be assumed during workflow execution"
+  AWS_SESSION_NAME:
+    required: false
+    description: "Respective session name for the assumed role"
+  region:
+    required: false
+    type: string
+    default: "us-east-1"
+  bucket-name:
+    required: true
+    type: string
+  artifact-version:
+    description: "Name of the archive to download, e.g. 'v1.2.3'"
+    required: true
+    type: string
+  path:
+    description: "Directory for downloaded files"
+    required: true
+    type: string
+
+runs:
+  using: "composite"
+  steps:
+  - name: Configure AWS credentials
+    uses: aws-actions/configure-aws-credentials@v1-node16
+    with:
+      aws-region: ${{ inputs.region }}
+      role-to-assume: ${{ inputs.AWS_ROLE_TO_ASSUME }}
+      role-session-name: ${{ inputs.AWS_SESSION_NAME }}
+
+  - name: Copying files from S3 Bucket
+    shell: bash
+    env:
+      BUCKET_NAME: ${{ inputs.bucket-name }}
+      DOWNLOAD_FOLDER: ${{ inputs.path }}
+      ARTIFACT_VERSION: ${{ inputs.artifact-version }}
+      REPO_NAME: ${{ github.event.repository.name }}
+    run: |
+      echo "Download folder == " ${DOWNLOAD_FOLDER}
+      echo "Bucket Name == " ${BUCKET_NAME}
+      echo "Artifact Version == " ${ARTIFACT_VERSION}
+      mkdir -p {{ inputs.path }}
+      aws s3 cp s3://${BUCKET_NAME}/gha-artifacts/${REPO_NAME}/${ARTIFACT_VERSION}.zip ${DOWNLOAD_FOLDER}/${ARTIFACT_VERSION}.zip
+
+  - name: Unzip Artifact
+    shell: bash
+    run: unzip ${{ inputs.artifact-version }} -d ${{ inputs.path }}/${{ inputs.artifact-version }}
+    working-directory: ${{ inputs.path }}
